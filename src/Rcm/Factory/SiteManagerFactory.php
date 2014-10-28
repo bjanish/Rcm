@@ -19,7 +19,6 @@
 namespace Rcm\Factory;
 
 use Rcm\Service\ContainerManager;
-use Rcm\Service\LayoutManager;
 use Rcm\Service\PageManager;
 use Rcm\Service\SiteManager;
 use Zend\ServiceManager\FactoryInterface;
@@ -49,9 +48,6 @@ class SiteManagerFactory implements FactoryInterface
     /** @var  \Rcm\Service\SiteManager */
     protected $siteManager;
 
-    /** @var  \Rcm\Service\LayoutManager */
-    protected $layoutManager;
-
     /** @var \Rcm\Service\PluginManager */
     protected $pluginManager;
 
@@ -78,6 +74,10 @@ class SiteManagerFactory implements FactoryInterface
 
         $this->siteManager = new SiteManager($siteRepo);
 
+        /** @var \Rcm\Entity\Site $currentSite */
+        $currentSite = $serviceLocator->get('Rcm\Service\CurrentSite');
+        $this->siteManager->setCurrentSiteId($currentSite->getSiteId());
+
         /*
          * Get Needed Dependencies
          */
@@ -86,8 +86,6 @@ class SiteManagerFactory implements FactoryInterface
         /** @var \Zend\Http\PhpEnvironment\Request $request */
         $this->request = $serviceLocator->get('request');
 
-        $domainManager = $serviceLocator->get('Rcm\Service\DomainManager');
-        $this->siteManager->setDomainManager($domainManager);
 
         $this->pluginManager = $this->serviceLocator->get('Rcm\Service\PluginManager');
         $this->siteManager->setPluginManager($this->pluginManager);
@@ -95,18 +93,8 @@ class SiteManagerFactory implements FactoryInterface
         $this->cache = $serviceLocator->get('Rcm\Service\Cache');
         $this->siteManager->setCache($this->cache);
 
-        $this->layoutManager = $this->constructLayoutManager();
-        $this->siteManager->setLayoutManager($this->layoutManager );
         $this->siteManager->setPageManager($this->constructPageManager());
         $this->siteManager->setContainerManager($this->constructContainerManager());
-
-        $domain = $this->getCurrentDomain();
-
-        if (empty($domain)) {
-            return $this->siteManager;
-        }
-
-        $this->siteManager->setSiteIdFromDomain($domain);
 
         return $this->siteManager;
     }
@@ -116,12 +104,15 @@ class SiteManagerFactory implements FactoryInterface
         /** @var \Doctrine\ORM\EntityRepository $repository */
         $repository = $this->entityManager->getRepository('\Rcm\Entity\Page');
 
+        /** @var \Rcm\Validator\MainLayout $layoutValidator */
+        $layoutValidator = $this->serviceLocator->get('Rcm\Validator\MainLayout');
+
         return new PageManager(
             $this->pluginManager,
             $repository,
             $this->cache,
             $this->siteManager,
-            $this->layoutManager->getMainLayoutValidator()
+            $layoutValidator
         );
     }
 
@@ -135,14 +126,6 @@ class SiteManagerFactory implements FactoryInterface
             $repository,
             $this->cache,
             $this->siteManager
-        );
-    }
-
-    private function constructLayoutManager()
-    {
-        return new LayoutManager(
-            $this->siteManager,
-            $this->config
         );
     }
 

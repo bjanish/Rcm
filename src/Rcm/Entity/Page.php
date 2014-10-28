@@ -122,7 +122,7 @@ class Page extends ContainerAbstract
      * @ORM\OneToOne(targetEntity="Revision")
      * @ORM\JoinColumn(name="publishedRevisionId", referencedColumnName="revisionId")
      */
-    protected $currentRevision;
+    protected $publishedRevision;
 
     /**
      * @var Revision Integer Staged Revision ID
@@ -207,7 +207,7 @@ class Page extends ContainerAbstract
         }
 
         $this->pageId = null;
-        //$this->name = null; // causes issues when cloning site
+        $this->name = null;
         $this->parent = null;
         parent::__clone();
     }
