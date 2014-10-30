@@ -55,11 +55,19 @@ class ContainerViewHelperFactory implements FactoryInterface
         /** @var \Zend\ServiceManager\ServiceLocatorInterface $serviceLocator */
         $serviceLocator = $viewManager->getServiceLocator();
 
-        /** @var \Rcm\Service\ContainerManager $containerManager */
-        $containerManager = $serviceLocator->get(
-            'Rcm\Service\ContainerManager'
+        /** @var \Rcm\Service\PluginManager $pluginManager */
+        $pluginManager = $serviceLocator->get(
+            'Rcm\Service\PluginManager'
         );
 
-        return new Container($containerManager);
+        /** @var \Rcm\Entity\Site $currentSite */
+        $currentSite = $serviceLocator->get(
+            'Rcm\Service\CurrentSite'
+        );
+
+        return new Container(
+            $currentSite,
+            $pluginManager
+        );
     }
 }
