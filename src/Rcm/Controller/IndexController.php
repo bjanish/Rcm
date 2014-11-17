@@ -146,7 +146,7 @@ class IndexController extends AbstractActionController
             }
 
             $response = $this->getResponse();
-            $response->setStatusCode(404);
+            $response->setStatusCode(410);
         }
 
         $allowed = $this->rcmIsPageAllowed($page);
@@ -157,7 +157,7 @@ class IndexController extends AbstractActionController
 
         $this->prepPageRevisionForDisplay($page, $revisionId);
 
-        if (!empty($revisionId) && empty($page->getCurrentRevision())) {
+        if (!empty($revisionId) && !$page->getCurrentRevision()) {
             return $this->redirectToPage($page->getName(), $page->getPageType());
         }
 
