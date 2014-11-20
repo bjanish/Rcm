@@ -41,9 +41,12 @@ use Zend\Validator\ValidatorInterface;
  * @link      http://github.com/reliv
  *
  * @ORM\Entity (repositoryClass="Rcm\Repository\Domain")
- * @ORM\Table(name="rcm_domains")
+ * @ORM\Table(name="rcm_domains",
+ *     indexes={
+ *         @ORM\Index(name="domain_name", columns={"domain"})
+ *     })
  */
-class Domain
+class Domain implements \JsonSerializable, \IteratorAggregate
 {
     /**
      * @var int Auto-Incremented Primary Key
@@ -60,6 +63,13 @@ class Domain
      * @ORM\Column(type="string")
      */
     protected $domain;
+
+    /**
+     * @var \Rcm\Entity\Site
+     *
+     * @ORM\OneToOne(targetEntity="Site", mappedBy="domain")
+     */
+    protected $site;
 
     /**
      * @var \Rcm\Entity\Domain Site Object that the domain name belongs
@@ -82,19 +92,6 @@ class Domain
      * @ORM\OneToMany(targetEntity="Domain", mappedBy="primaryDomain")
      */
     protected $additionalDomains;
-
-    /**
-     * @var \Rcm\Entity\Language This domain's default language.  Needed for
-     *                           translations by some plugins.
-     *
-     * @ORM\ManyToOne(targetEntity="Language")
-     * @ORM\JoinColumn(
-     *     name="defaultLanguageId",
-     *     referencedColumnName="languageId",
-     *     onDelete="SET NULL"
-     * )
-     */
-    protected $defaultLanguage;
 
     /**
      * @var \Zend\Validator\ValidatorInterface
@@ -257,25 +254,50 @@ class Domain
     }
 
     /**
-     * Sets the DefaultLanguage property
+     * jsonSerialize
      *
-     * @param \Rcm\Entity\Language $defaultLanguage DefaultLanguage
-     *
-     * @return null
+     * @return array|mixed
      */
-    public function setDefaultLanguage(Language $defaultLanguage)
+    public function jsonSerialize()
     {
-        $this->defaultLanguage = $defaultLanguage;
+        return $this->toArray();
     }
 
     /**
-     * Gets the DefaultLanguage property
+     * getIterator
      *
-     * @return \Rcm\Entity\Language defaultLanguage DefaultLanguage
-     *
+     * @return array|Traversable
      */
-    public function getDefaultLanguage()
+    public function getIterator()
     {
-        return $this->defaultLanguage;
+        return new \ArrayIterator($this->toArray());
     }
+
+    /**
+     * toArray
+     *
+     * @return array
+     */
+    public function toArray()
+    {
+        return get_object_vars($this);
+    }
+
+    /**
+     * @return Site
+     */
+    public function getSite()
+    {
+        return $this->site;
+    }
+
+    /**
+     * @param Site $site
+     */
+    public function setSite(Site $site)
+    {
+        $this->site = $site;
+    }
+
+
 }

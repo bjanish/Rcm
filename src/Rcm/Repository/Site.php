@@ -24,6 +24,7 @@ use Doctrine\ORM\EntityRepository;
 use Doctrine\ORM\NoResultException;
 use Doctrine\ORM\Query;
 use Rcm\Entity\Site as SiteEntity;
+use Rcm\Exception\SiteNotFoundException;
 
 /**
  * Site Repository
@@ -187,15 +188,28 @@ class Site extends EntityRepository
     protected function getSiteByDomainFromDb($domain)
     {
         $queryBuilder = $this->_em->createQueryBuilder();
-        $queryBuilder->select('site, country, language, domain')
-            ->from('\Rcm\Entity\Site', 'site')
-            ->join('site.domain', 'domain')
-            ->join('site.country', 'country')
-            ->join('site.language', 'language')
+        $queryBuilder->select('domain, site, primaryDomain')
+            ->from('\Rcm\Entity\Domain', 'domain')
+            ->leftJoin('domain.site', 'site')
+            ->leftJoin('domain.primaryDomain', 'primaryDomain')
             ->where('domain.domain = :domainName')
             ->setParameter('domainName', $domain);
 
-        return $queryBuilder->getQuery()->getSingleResult();
+        try {
+            /** @var \Rcm\Entity\Domain $domain */
+            $domain = $queryBuilder->getQuery()->getSingleResult();
+        } catch (NoResultException $e) {
+            return null;
+        }
+
+        if ($domain->getPrimary()) {
+            $site = $domain->getPrimary()->getSite();
+            $site->setDomain($domain);
+        } else {
+            $site = $domain->getSite();
+        }
+
+        return $site;
     }
 
     /**
@@ -224,6 +238,43 @@ class Site extends EntityRepository
         return $this->getPrimaryDomain($primary->getDomainName());
     }
 
+    /**
+     * createNewSite
+     *
+     * @param null $siteId
+     *
+     * @return SiteEntity
+     * @throws SiteNotFoundException
+     */
+    public function createNewSite($siteId = null)
+    {
+        if (empty($siteId)) {
+
+            // new site
+            /** @var \Rcm\Entity\Site $newSite */
+            return new \Rcm\Entity\Site();
+        }
+
+        // clone
+
+        /** @var \Rcm\Entity\Site $site */
+        $existingSite = $this->find($siteId);
+
+        if (empty($existingSite)) {
+
+            throw new SiteNotFoundException("Site {$siteId} not found.");
+        }
+
+        $site = clone($existingSite);
+
+        return $site;
+    }
+
+    /**
+     * getDoctrine
+     *
+     * @return \Doctrine\ORM\EntityManager
+     */
     public function getDoctrine()
     {
         return $this->_em;
