@@ -161,9 +161,15 @@ class IndexController extends AbstractActionController
             return $this->redirectToPage($page->getName(), $page->getPageType());
         }
 
+        // if we have no revision, page is not found
+        if (empty($page->getCurrentRevision())) {
+            $response = $this->getResponse();
+            $response->setStatusCode(404);
+        }
+
         $this->prepLayoutView($site , $page, $page->getSiteLayoutOverride());
 
-        $viewModel = new ViewModel(array('page' => $page));
+        $viewModel = new ViewModel(['page' => $page]);
 
         $viewModel->setTemplate(
             'pages/'

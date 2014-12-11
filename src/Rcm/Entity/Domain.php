@@ -46,7 +46,7 @@ use Zend\Validator\ValidatorInterface;
  *         @ORM\Index(name="domain_name", columns={"domain"})
  *     })
  */
-class Domain implements \JsonSerializable, \IteratorAggregate
+class Domain implements ApiInterface
 {
     /**
      * @var int Auto-Incremented Primary Key
@@ -128,9 +128,9 @@ class Domain implements \JsonSerializable, \IteratorAggregate
 
         if(empty($this->domainValidator)){
             $this->domainValidator = new Hostname(
-                array(
+                [
                     'allow' => Hostname::ALLOW_LOCAL | Hostname::ALLOW_IP
-                )
+                ]
             );
         }
 
@@ -273,7 +273,7 @@ class Domain implements \JsonSerializable, \IteratorAggregate
      *
      * @return void
      */
-    public function populate($data = array())
+    public function populate($data = [])
     {
         if (!empty($data['domainId'])) {
             $this->setDomainId($data['domainId']);
@@ -289,15 +289,15 @@ class Domain implements \JsonSerializable, \IteratorAggregate
     /**
      * populateFromObject
      *
-     * @param \Rcm\Entity\Domain $data
+     * @param \Rcm\Entity\Domain|ApiInterface $object
      *
      * @return void
      */
-    public function populateFromObject(Domain $data)
+    public function populateFromObject(ApiInterface $object)
     {
-        $this->setDomainId($data->getDomainId());
-        $this->setDomainName($data->getDomainName());
-        $this->setPrimary($data->getPrimary());
+        if ($object instanceof Domain) {
+            $this->populate($object->toArray());
+        }
     }
 
     /**
@@ -327,10 +327,10 @@ class Domain implements \JsonSerializable, \IteratorAggregate
      */
     public function toArray()
     {
-        return array(
+        return [
             'domainId' => $this->getDomainId(),
             'domain' => $this->getDomainName(),
             'primaryDomain' => $this->getPrimary(),
-        );
+        ];
     }
 }

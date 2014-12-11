@@ -75,7 +75,7 @@ class RouteListener
      */
     public function checkDomain(MvcEvent $event)
     {
-        if (empty($this->currentSite->getSiteId()) || $this->currentSite->getStatus() != 'A') {
+        if (!$this->currentSite->getSiteId() || $this->currentSite->getStatus() != 'A') {
 
             if (empty($this->config['Rcm']['defaultDomain'])
                 || $this->config['Rcm']['defaultDomain'] == $this->currentSite->getDomain()->getDomainName()
@@ -100,7 +100,7 @@ class RouteListener
 
         }
 
-        $primaryCheck = $this->currentSite->getDomain()->getDomainName();
+        $primaryCheck = $this->currentSite->getDomain()->getPrimary();
 
         /** @var \Zend\Http\PhpEnvironment\Request $request */
         $request = $event->getRequest();
@@ -111,13 +111,13 @@ class RouteListener
             return null;
         }
 
-        if (!empty($primaryCheck) && $primaryCheck != $currentDomain) {
+        if (!empty($primaryCheck) && $primaryCheck->getDomainName() != $currentDomain) {
             $response = new Response();
             $response->setStatusCode(302);
             $response->getHeaders()
                 ->addHeaderLine(
                     'Location',
-                    '//' . $primaryCheck
+                    '//' . $primaryCheck->getDomainName()
                 );
 
             $event->stopPropagation(true);

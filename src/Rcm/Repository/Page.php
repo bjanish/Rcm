@@ -230,48 +230,13 @@ class Page extends ContainerAbstract
             return null;
         }
 
-        $return = array();
+        $return = [];
 
         foreach ($result as &$page) {
             $return[$page['pageId']] = $page['name'];
         }
 
         return $return;
-    }
-
-    /**
-     * Add a new page to the DB
-     *
-     * @param string     $pageName  Page Name
-     * @param string     $pageTitle Page Title
-     * @param string     $layout    Site Layout
-     * @param string     $author    Author
-     * @param SiteEntity $site      Site Entity
-     * @param string     $pageType  Page Type
-     * @param bool       $doFlush
-     * @param bool       $publishPage
-     *
-     * @return PageEntity
-     */
-    public function createNewPage(
-        $pageName,
-        $pageTitle,
-        $layout,
-        $author,
-        SiteEntity $site,
-        $pageType = 'n',
-        $doFlush = true,
-        $publishPage = false
-    ) {
-        $pageData = array();
-
-        $pageData['name'] = $pageName;
-        $pageData['pageTitle'] = $pageTitle;
-        $pageData['siteLayoutOverride'] = $layout;
-        $pageData['author'] = $author;
-        $pageData['pageType'] = $pageType;
-
-        return $this->createPage($site, $pageData, $publishPage, $doFlush);
     }
 
     /**
@@ -291,12 +256,15 @@ class Page extends ContainerAbstract
         $publishPage = false,
         $doFlush = true
     ) {
-        if(empty($pageData['author'])){
+        if (empty($pageData['author'])) {
             throw new \Exception('Author is required to create a page.');
         }
         $revision = new Revision();
         $revision->setAuthor($pageData['author']);
         $revision->setCreatedDate(new \DateTime());
+
+        // we should not have an Id on page create
+        unset($pageData['pageId']);
 
         $page = new PageEntity();
         $page->populate($pageData);
@@ -317,10 +285,10 @@ class Page extends ContainerAbstract
 
         if ($doFlush) {
             $this->_em->flush(
-                array(
+                [
                     $revision,
                     $page
-                )
+                ]
             );
         }
 
@@ -344,7 +312,7 @@ class Page extends ContainerAbstract
         $publishPage = false,
         $doFlush = false
     ) {
-        $results = array();
+        $results = [];
 
         foreach ($pagesData as $name => $pageData) {
 
@@ -360,78 +328,112 @@ class Page extends ContainerAbstract
     }
 
     /**
+     * updatePage
+     *
+     * @param PageEntity $page
+     * @param array      $pageData
+     * @param bool       $doFlush
+     *
+     * @return void
+     */
+    public function updatePage(
+        PageEntity $page,
+        $pageData,
+        $doFlush = true
+    ) {
+
+        // Values cannot be changed
+        unset($pageData['pageId']);
+        unset($pageData['author']);
+        unset($pageData['createdDate']);
+        unset($pageData['lastPublished']);
+
+        $page->populate($pageData);
+
+        $this->getEntityManager()->persist($page);
+        if ($doFlush) {
+            $this->getEntityManager()->flush();
+        }
+    }
+
+    /**
      * Copy a page
      *
+     * @param SiteEntity $destinationSite Site Entity to copy page to
      * @param PageEntity $pageToCopy      Page Entity to copy
-     * @param string     $newPageName     Page Name or URL.
-     * @param string     $author          Author of copied page
-     * @param SiteEntity $siteDestination Site Entity to copy page to
-     * @param string     $newPageTitle    Title of page
-     * @param integer    $pageRevisionId  Page Revision ID to use for copy.  Defaults to currently published
-     * @param string     $newPageType     Page type of page.  Defaults to "n"
-     * @param boolean    $publishNewPage  Publish page instead of setting to staged
+     * @param array      $pageData        Array of data to populate the page entity
+     * @param null       $pageRevisionId  Page Revision ID to use for copy.  Defaults to currently published
+     * @param bool       $publishNewPage  Publish page instead of setting to staged
+     * @param bool       $doFlush         Force flush
      *
-     * @returns boolean
-     *
-     * @throws \Rcm\Exception\InvalidArgumentException
-     * @throws \Rcm\Exception\PageNotFoundException
-     *
-     * @SuppressWarnings(PHPMD.CyclomaticComplexity)
+     * @return PageEntity
      */
     public function copyPage(
+        SiteEntity $destinationSite,
         PageEntity $pageToCopy,
-        $newPageName,
-        $author,
-        SiteEntity $siteDestination,
-        $newPageTitle = null,
+        $pageData,
         $pageRevisionId = null,
-        $newPageType = 'n',
-        $publishNewPage = false
+        $publishNewPage = false,
+        $doFlush = true
     ) {
-        if (empty($newPageName) || empty($author)) {
+
+        if (empty($pageData['name'])) {
             throw new InvalidArgumentException(
-                'Missing needed information to create page copy.'
+                'Missing needed information (name) to create page copy.'
+            );
+        }
+        if (empty($pageData['author'])) {
+            throw new InvalidArgumentException(
+                'Missing needed information (author) to create page copy.'
             );
         }
 
-        if (empty($newPageTitle)) {
-            $newPageTitle = $pageToCopy->getPageTitle();
-        }
+        // Values cannot be changed
+        unset($pageData['pageId']);
+        unset($pageData['createdDate']);
+        unset($pageData['lastPublished']);
+
+        $pageData['site'] = $destinationSite;
 
         $clonedPage = clone $pageToCopy;
-        $clonedPage->setName($newPageName);
-        $clonedPage->setPageTitle($newPageTitle);
-        $clonedPage->setAuthor($author);
-        $clonedPage->setPageType($newPageType);
-        $clonedPage->setSite($siteDestination);
+        $clonedPage->populate($pageData);
+        $revisionToUse = $clonedPage->getStagedRevision();
 
-        if (!empty($pageRevisionId) && is_numeric($pageRevisionId)) {
-            $revisionToUse = $pageToCopy->getRevisionById($pageRevisionId);
+        if (!empty($pageRevisionId)) {
+            $sourceRevision = $pageToCopy->getRevisionById($pageRevisionId);
 
-            if (empty($revisionToUse)) {
+            if (empty($sourceRevision)) {
                 throw new PageNotFoundException(
                     'Page revision not found.'
                 );
             }
 
-            $clonedPage->setRevisions(array());
-            $clonedRevision = clone $revisionToUse;
-            $clonedPage->addRevision($clonedRevision);
-
-            if ($publishNewPage) {
-                $clonedPage->setPublishedRevision($clonedRevision);
-            } else {
-                $clonedPage->setStagedRevision($clonedRevision);
-            }
-
+            $revisionToUse = clone $sourceRevision;
+            $clonedPage->setRevisions([]);
+            $clonedPage->addRevision($revisionToUse);
         }
 
-        $siteDestination->addPage($clonedPage);
+        if (empty($revisionToUse)) {
+            throw new RuntimeException(
+                'Page revision not found.'
+            );
+        }
+
+        if ($publishNewPage) {
+            $clonedPage->setPublishedRevision($revisionToUse);
+        } else {
+            $clonedPage->setStagedRevision($revisionToUse);
+        }
+
+        $destinationSite->addPage($clonedPage);
 
         $this->_em->persist($clonedPage);
-        $this->_em->flush($clonedPage);
 
-        return true;
+        if ($doFlush) {
+            $this->_em->flush($clonedPage);
+        }
+
+        return $clonedPage;
     }
 
     /**
@@ -504,10 +506,10 @@ class Page extends ContainerAbstract
         $page->setPublishedRevision($revision);
 
         $this->_em->flush(
-            array(
+            [
                 $revision,
                 $page
-            )
+            ]
         );
 
         return $page;
@@ -555,7 +557,7 @@ class Page extends ContainerAbstract
             );
             $lastDraft = array_values($lastDraft['revisions']);
         } catch (NoResultException $e) {
-            $lastDraft = array(0 => null);
+            $lastDraft = [0 => null];
         }
 
         $result['lastDraft'] = $lastDraft[0];
@@ -635,7 +637,7 @@ class Page extends ContainerAbstract
                 \Doctrine\ORM\Query::HYDRATE_ARRAY
             );
         } catch (NoResultException $e) {
-            return array();
+            return [];
         }
 
         return $result;

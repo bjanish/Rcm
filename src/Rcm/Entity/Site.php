@@ -42,7 +42,7 @@ use Rcm\Exception\InvalidArgumentException;
  *
  * @SuppressWarnings(PHPMD)
  */
-class Site implements \JsonSerializable, \IteratorAggregate
+class Site implements ApiInterface
 {
     /**
      * @var int Auto-Incremented Primary Key
@@ -170,7 +170,7 @@ class Site implements \JsonSerializable, \IteratorAggregate
      *     }
      * )
      **/
-    protected $sitePlugins = array();
+    protected $sitePlugins = [];
 
     /**
      * @var string URL to login page.
@@ -194,14 +194,27 @@ class Site implements \JsonSerializable, \IteratorAggregate
     protected $notFoundPage = 'not-found';
 
     /**
-     * @var array will only clone these page types
+     * @var array Supported page types - these should be populated at object creation
+     * @todo This should be part of the DB schema, so each site can have a list on creation
      */
-    protected $cloneablePageTypes
-        = array(
-            'n',
-            'z',
-            't',
-        );
+    protected $supportedPageTypes
+        = [
+            'n' => [
+                'type' => 'n',
+                'title' => 'Normal Page',
+                'canClone' => true,
+            ],
+            't' => [
+                'type' => 't',
+                'title' => 'Template Page',
+                'canClone' => true,
+            ],
+            'z' => [
+                'type' => 'z',
+                'title' => 'System Page',
+                'canClone' => true,
+            ],
+        ];
 
     /**
      * Constructor for site
@@ -233,8 +246,8 @@ class Site implements \JsonSerializable, \IteratorAggregate
 
         /* Clone Site Wide Plugins */
         $siteWidePlugins = $this->sitePlugins;
-        $clonedSiteWides = array();
-        $siteWideIdsToChange = array();
+        $clonedSiteWides = [];
+        $siteWideIdsToChange = [];
 
         if (!empty($siteWidePlugins)) {
             /** @var \Rcm\Entity\PluginInstance $siteWidePlugin */
@@ -248,7 +261,7 @@ class Site implements \JsonSerializable, \IteratorAggregate
 
         /* Get Cloned Pages */
         $pages = $this->getPages();
-        $clonedPages = array();
+        $clonedPages = [];
 
         if (!empty($pages)) {
             /** @var \Rcm\Entity\Page $page */
@@ -256,23 +269,22 @@ class Site implements \JsonSerializable, \IteratorAggregate
 
                 $pageType = $page->getPageType();
 
+                // Only clone if is supported
+                if (!isset($this->supportedPageTypes[$pageType])) {
+                    continue;
+                }
                 // Only clone if is cloneable
-                if (!in_array($pageType, $this->cloneablePageTypes)) {
+                if (!$this->supportedPageTypes[$pageType]['canClone']) {
                     continue;
                 }
 
-                $clonedPage = clone $page;
-                $clonedPage->setSite($this);
-                $clonedPage->setName($page->getName());
+                $clonedPage = $this->getContainerClone($page, $siteWideIdsToChange);
+
+                if (!$clonedPage) {
+                    continue;
+                }
+
                 $clonedPages[] = $clonedPage;
-
-                $revision = $clonedPage->getPublishedRevision();
-
-                if (empty($revision)) {
-                    continue;
-                }
-
-                $this->fixRevisionSiteWides($revision, $siteWideIdsToChange);
             }
 
             $this->pages = new ArrayCollection($clonedPages);
@@ -280,29 +292,48 @@ class Site implements \JsonSerializable, \IteratorAggregate
 
         /* Get Cloned Containers */
         $containers = $this->getContainers();
-        $clonedContainers = array();
+        $clonedContainers = [];
 
         if (!empty($containers)) {
             /** @var \Rcm\Entity\Container $container */
             foreach ($containers as $container) {
+                $clonedContainer = $this->getContainerClone($container, $siteWideIdsToChange);
 
-                $clonedContainer = clone $container;
-                $clonedContainer->setSite($this);
-                $clonedContainers[] = $clonedContainer;
-
-                $revision = $clonedContainer->getPublishedRevision();
-
-                if (empty($revision)) {
+                if (!$clonedContainer) {
                     continue;
                 }
 
-                $this->fixRevisionSiteWides($revision, $siteWideIdsToChange);
+                $clonedContainers[] = $clonedContainer;
             }
 
             $this->containers = new ArrayCollection($clonedContainers);
         }
+    }
+
+    protected function getContainerClone(ContainerInterface $original, $siteWideIdsToChange)
+    {
+        $clonedContainer = clone $original;
+        $clonedContainer->setSite($this);
+        $clonedContainer->setName($original->getName());
 
 
+        $check = $original->getPublishedRevision();
+
+        if (empty($check)) {
+            return null;
+        }
+
+        $revision = $clonedContainer->getStagedRevision();
+
+        if (empty($revision)) {
+            return null;
+        }
+
+        $clonedContainer->setPublishedRevision($revision);
+
+        $this->fixRevisionSiteWides($revision, $siteWideIdsToChange);
+
+        return $clonedContainer;
     }
 
     /**
@@ -330,55 +361,49 @@ class Site implements \JsonSerializable, \IteratorAggregate
     }
 
     /**
-     * getCloneablePageTypes
+     * getSupportedPageTypes
      *
      * @return array
      */
-    public function getCloneablePageTypes()
+    public function getSupportedPageTypes()
     {
-        return $this->cloneablePageTypes;
+        return $this->supportedPageTypes;
     }
 
     /**
-     * setCloneablePageTypes
+     * setSupportedPageTypes
      *
-     * @param array $cloneablePageTypes
+     * @param array $supportedPageTypes
      *
      * @return void
      */
-    public function setCloneablePageTypes(array $cloneablePageTypes)
+    public function setSupportedPageTypes(array $supportedPageTypes)
     {
-        $this->cloneablePageTypes = $cloneablePageTypes;
+        $this->supportedPageTypes = $supportedPageTypes;
     }
 
     /**
-     * Add Cloneable Page Type
+     * Add Supported Page Type
      *
-     * @param string $cloneablePageType
+     * @param array $pageType
      *
      * @return void
      */
-    public function addCloneablePageType($cloneablePageType)
+    public function addPageType(array $pageType)
     {
-        if (!in_array($cloneablePageType, $this->cloneablePageTypes)) {
-            $this->cloneablePageTypes[] = $cloneablePageType;
-        }
+        $this->supportedPageTypes[$pageType['type']] = $pageType;
     }
 
     /**
-     * Remove Cloneable Page Type
+     * Remove Supported Page Type
      *
-     * @param $cloneablePageType
+     * @param array $pageType
      *
      * @return void
      */
-    public function removeCloneablePageType($cloneablePageType)
+    public function removePageType(array $pageType)
     {
-        if (($key = array_search($cloneablePageType, $this->cloneablePageTypes))
-            !== false
-        ) {
-            unset($this->cloneablePageTypes[$key]);
-        }
+        unset($this->supportedPageTypes[$pageType['type']]);
     }
 
     /**
@@ -675,7 +700,7 @@ class Site implements \JsonSerializable, \IteratorAggregate
     {
         $plugins = $this->getSiteWidePlugins();
 
-        $list = array();
+        $list = [];
 
 
         if (empty($plugins)) {
@@ -898,35 +923,42 @@ class Site implements \JsonSerializable, \IteratorAggregate
         if (!empty($data['notFoundPage'])) {
             $this->setNotFoundPage($data['notFoundPage']);
         }
+        if (!empty($data['supportedPageTypes'])) {
+            $this->setSupportedPageTypes($data['supportedPageTypes']);
+        }
     }
 
     /**
      * populateFromObject - @todo some properties are missing
      *
-     * @param Site $site
+     * @param Site|ApiInterface $object
      *
      * @return void
      */
-    public function populateFromObject(Site $site)
+    public function populateFromObject(ApiInterface $object)
     {
-        $this->setSiteId($site->getSiteId());
-        if (is_object($site->getDomain())) {
-            $this->setDomain($site->getDomain());
+        if (!$object instanceof Site) {
+            return;
         }
-        $this->setTheme($site->getTheme());
-        $this->setSiteLayout($site->getSiteLayout());
-        $this->setSiteTitle($site->getSiteTitle());
-        if (is_object($site->getLanguage())) {
-            $this->setLanguage($site->getLanguage());
+        $this->setSiteId($object->getSiteId());
+        if (is_object($object->getDomain())) {
+            $this->setDomain($object->getDomain());
         }
-        if (is_object($site->getCountry())) {
-            $this->setCountry($site->getCountry());
+        $this->setTheme($object->getTheme());
+        $this->setSiteLayout($object->getSiteLayout());
+        $this->setSiteTitle($object->getSiteTitle());
+        if (is_object($object->getLanguage())) {
+            $this->setLanguage($object->getLanguage());
         }
-        $this->setStatus($site->getStatus());
-        $this->setFavIcon($site->getFavIcon());
-        $this->setLoginPage($site->getLoginPage());
-        $this->setNotAuthorizedPage($site->getNotAuthorizedPage());
-        $this->setNotFoundPage($site->getNotFoundPage());
+        if (is_object($object->getCountry())) {
+            $this->setCountry($object->getCountry());
+        }
+        $this->setStatus($object->getStatus());
+        $this->setFavIcon($object->getFavIcon());
+        $this->setLoginPage($object->getLoginPage());
+        $this->setNotAuthorizedPage($object->getNotAuthorizedPage());
+        $this->setNotFoundPage($object->getNotFoundPage());
+        $this->setSupportedPageTypes($object->getSupportedPageTypes());
     }
 
     /**

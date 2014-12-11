@@ -42,7 +42,7 @@ use Rcm\Exception\InvalidArgumentException;
  * @ORM\Entity(repositoryClass="Rcm\Repository\Country")
  * @ORM\Table(name="rcm_countries")
  */
-class Country implements \JsonSerializable, \IteratorAggregate
+class Country implements ApiInterface
 {
     /**
      * @var string ISO Three Digit Country Code
@@ -157,7 +157,7 @@ class Country implements \JsonSerializable, \IteratorAggregate
      *
      * @return void
      */
-    public function populate($data = array())
+    public function populate($data = [])
     {
         if (!empty($data['iso3'])) {
             $this->setIso3($data['iso3']);
@@ -173,15 +173,15 @@ class Country implements \JsonSerializable, \IteratorAggregate
     /**
      * populateFromObject
      *
-     * @param Country $data
+     * @param Country|ApiInterface $object
      *
      * @return void
      */
-    public function populateFromObject(Country $data)
+    public function populateFromObject(ApiInterface $object)
     {
-        $this->setIso3($data->getIso3());
-        $this->setIso2($data->getIso2());
-        $this->setCountryName($data->getCountryName());
+        if ($object instanceof Country) {
+            $this->populate($object->toArray());
+        }
     }
 
     /**
@@ -211,10 +211,10 @@ class Country implements \JsonSerializable, \IteratorAggregate
      */
     public function toArray()
     {
-        return array(
+        return [
             'iso3' => $this->getIso3(),
             'iso2' => $this->getIso2(),
             'countryName' => $this->getCountryName()
-        );
+        ];
     }
 }

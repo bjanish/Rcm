@@ -46,7 +46,7 @@ use Rcm\Exception\InvalidArgumentException;
  *
  * @SuppressWarnings(PHPMD.TooManyFields)
  */
-class Page extends ContainerAbstract implements \JsonSerializable, \IteratorAggregate
+class Page extends ContainerAbstract implements ApiInterface
 {
     /**
      * @var int Auto-Incremented Primary Key
@@ -414,9 +414,18 @@ class Page extends ContainerAbstract implements \JsonSerializable, \IteratorAggr
      */
     public function populate($data)
     {
+        if (isset($data['site']) && $data['site'] instanceof Site) {
+            $this->setSite($data['site']);
+        }
+
         if (isset($data['name'])) {
             $this->name = $data['name'];
         }
+
+        if (isset($data['pageId'])) {
+            $this->setPageId($data['pageId']);
+        }
+
         if (isset($data['pageTitle'])) {
             $this->setPageTitle($data['pageTitle']);
         }
@@ -437,6 +446,14 @@ class Page extends ContainerAbstract implements \JsonSerializable, \IteratorAggr
             $this->setAuthor($data['author']);
         }
 
+        if (isset($data['lastPublished']) && $data['lastPublished'] instanceof \DateTime) {
+            $this->setLastPublished($data['lastPublished']);
+        }
+
+        if (isset($data['createdDate']) && $data['createdDate'] instanceof \DateTime) {
+            $this->setLastPublished($data['createdDate']);
+        }
+
         if (isset($data['pageLayout'])) {
             $this->setPageLayout($data['pageLayout']);
         }
@@ -453,6 +470,20 @@ class Page extends ContainerAbstract implements \JsonSerializable, \IteratorAggr
 
         if ($parent instanceof Page) {
             $this->setParent($parent);
+        }
+    }
+
+    /**
+     * populateFromObject
+     *
+     * @param Page|ApiInterface $object
+     *
+     * @return void
+     */
+    public function populateFromObject(ApiInterface $object)
+    {
+        if ($object instanceof Page) {
+            $this->populate($object->toArray());
         }
     }
 

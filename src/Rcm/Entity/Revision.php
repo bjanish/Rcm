@@ -113,7 +113,7 @@ class Revision
 
     public $isDirty = false;
 
-    protected $wrappersSortedByPageContainer = array();
+    protected $wrappersSortedByPageContainer = [];
 
     /**
      * Constructor for Page Revision Entity.
@@ -133,13 +133,12 @@ class Revision
         $this->revisionId = null;
         $this->createdDate = new \DateTime();
 
-        if (!empty($this->publishedDate)) {
-            $this->publishedDate = new \DateTime();
-        }
+        $this->published = false;
+        $this->publishedDate = null;
 
         /* Clone Plugins */
         $pluginWrappers = $this->pluginWrappers;
-        $clonedPluginWrappers = array();
+        $clonedPluginWrappers = [];
 
         /** @var \Rcm\Entity\PluginWrapper $pluginWrapper */
         foreach ($pluginWrappers as $pluginWrapper) {
@@ -253,10 +252,10 @@ class Revision
     public function getPluginWrappers()
     {
         if (empty($this->pluginWrappers)) {
-            return array();
+            return [];
         }
 
-        $wrappers = array();
+        $wrappers = [];
 
         /** @var \Rcm\Entity\PluginWrapper $wrapper */
         foreach($this->pluginWrappers as $wrapper) {

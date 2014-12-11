@@ -105,7 +105,8 @@ abstract class ContainerAbstract implements ContainerInterface
             $revision = clone $this->publishedRevision;
             $this->publishedRevision = $revision;
             $this->revisions[] = $revision;
-            $this->stagedRevision = null;
+            $this->stagedRevision = $revision;
+            $this->publishedRevision = null;
         } elseif (!empty($this->stagedRevision)) {
             $revision = clone $this->stagedRevision;
             $this->stagedRevision = $revision;
@@ -238,6 +239,7 @@ abstract class ContainerAbstract implements ContainerInterface
 
         $revision->publishRevision();
         $this->publishedRevision = $revision;
+        $this->setLastPublished(new \DateTime());
     }
 
     /**

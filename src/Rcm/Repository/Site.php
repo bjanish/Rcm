@@ -99,7 +99,7 @@ class Site extends EntityRepository
         $repo = $this->_em
             ->getRepository('\Rcm\Entity\Site');
         if($mustBeActive){
-            return $repo ->findBy(array('status' => 'A'));
+            return $repo ->findBy(['status' => 'A']);
         }else{
             return $repo->findAll();
         }
@@ -157,7 +157,7 @@ class Site extends EntityRepository
         $result = $queryBuilder->getQuery()->getSingleResult(\Doctrine\ORM\Query::HYDRATE_ARRAY);
 
         if (empty($result) || empty($result['sitePlugins'])) {
-            return array();
+            return [];
         }
 
         return $result['sitePlugins'];
@@ -204,6 +204,8 @@ class Site extends EntityRepository
 
         if ($domain->getPrimary()) {
             $site = $domain->getPrimary()->getSite();
+            $this->_em->detach($site);
+            $this->_em->detach($domain);
             $site->setDomain($domain);
         } else {
             $site = $domain->getSite();
@@ -223,7 +225,7 @@ class Site extends EntityRepository
     {
         /** @var \Rcm\Entity\Domain $domain */
         $domain = $this->_em->getRepository('\Rcm\Entity\Domain')
-            ->findOneBy(array('domain' => $domain));
+            ->findOneBy(['domain' => $domain]);
 
         if (empty($domain)) {
             return null;
