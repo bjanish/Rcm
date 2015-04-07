@@ -181,6 +181,16 @@ return [
                     ]
                 ],
             ],
+            'load-balancer-health-check' => [
+                'type' => 'Zend\Mvc\Router\Http\Segment',
+                'options' => [
+                    'route' => '/load-balancer-health-check',
+                    'defaults' => [
+                        'controller' => 'Rcm\Controller\PageSearchApiController',
+                        'action' => 'allSitePages',
+                    ]
+                ],
+            ],
             'blog' => [
                 'type' => 'Zend\Mvc\Router\Http\Segment',
                 'options' => [
@@ -288,6 +298,9 @@ return [
             'Rcm\Service\CurrentSite'
             => '\Rcm\Factory\CurrentSiteFactory',
         ],
+        'invokables' => [
+            'Rcm\Service\DisplayCountService' => 'Rcm\Service\DisplayCountService'
+        ],
         'aliases' => [
             'rcmLogger' => 'Rcm\Service\Logger',
         ]
@@ -326,6 +339,8 @@ return [
             => 'Rcm\View\Helper\UrlToPage',
             'revisionHelper'
             => 'Rcm\View\Helper\RevisionHelper',
+            'rcmJsLibIncludeCoreJs' =>
+                'Rcm\View\Helper\IncludeCoreJs',
         ],
     ],
     'controller_plugins' => [
@@ -350,6 +365,23 @@ return [
         'resolver_configs' => [
             'aliases' => [
                 'modules/rcm/' => __DIR__ . '/../public/',
+            ],
+            'collections' => [
+                'modules/rcm/rcm-core.js' => [
+                    'modules/rcm/core/rcm-guid.js',
+                    'modules/rcm/core/rcm-event-manager.js',
+                    'modules/rcm/core/rcm-loading.js',
+                    'modules/rcm/core/rcm.js',
+                    'modules/rcm/core/rcm-api.js',
+                    'modules/rcm/rcm-dialog/rcm-dialog.js',
+                    'modules/rcm/rcm-dialog/strategy/rcm-blank-dialog.js',
+                    'modules/rcm/rcm-dialog/strategy/rcm-blank-iframe-dialog.js',
+                    'modules/rcm/rcm-dialog/strategy/rcm-form-dialog.js',
+                    'modules/rcm/rcm-dialog/strategy/rcm-standard-dialog.js',
+                    'modules/rcm/core/rcm-form-double-submit-protect.js',
+                    'modules/rcm/core/rcm-bootstrap-alert-confirm.js',
+                    'modules/rcm/core/rcm-popout-window.js',
+                ],
             ],
         ],
     ],

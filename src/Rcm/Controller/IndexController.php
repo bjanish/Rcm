@@ -129,6 +129,11 @@ class IndexController extends AbstractActionController
         $pageType = 'n',
         $revisionId = null
     ) {
+        $requestedPageData = [
+            'rcmPageName' => strtolower($pageName),
+            'rcmPageType' => strtolower($pageType),
+            'rcmPageRevision' => $revisionId,
+        ];
 
         /* Get the Page for display */
         $page = $this->pageRepo->getPageByName(
@@ -136,6 +141,8 @@ class IndexController extends AbstractActionController
             $pageName,
             $pageType
         );
+
+        $viewModel = new ViewModel();
 
         if (!$page) {
             $page = $this->renderNotFoundPage($site);
@@ -161,9 +168,9 @@ class IndexController extends AbstractActionController
             $page = $this->renderNotFoundPage($site);
         }
 
-        $this->prepLayoutView($site, $page, $page->getSiteLayoutOverride());
+        $this->prepLayoutView($site, $page, $requestedPageData, $page->getSiteLayoutOverride());
 
-        $viewModel = new ViewModel(['page' => $page]);
+        $viewModel->setVariable('page',$page);
 
         $viewModel->setTemplate(
             'pages/'
@@ -190,7 +197,6 @@ class IndexController extends AbstractActionController
 
         if (empty($page)) {
             throw new PageNotFoundException('No default page defined for 404 not found error');
-            // return $this->notFoundAction();
         }
 
         $response = $this->getResponse();
@@ -199,7 +205,7 @@ class IndexController extends AbstractActionController
         return $page;
     }
 
-    protected function prepLayoutView(Site $site, Page $page, $layoutOverRide)
+    protected function prepLayoutView(Site $site, Page $page, $requestedPageData, $layoutOverRide)
     {
         /** @var ViewModel $layoutView */
         $layoutView = $this->layout();
@@ -221,6 +227,7 @@ class IndexController extends AbstractActionController
 
         $layoutView->setVariable('page', $page);
         $layoutView->setVariable('site', $site);
+        $layoutView->setVariable('requestedPageData', $requestedPageData);
     }
 
     public function prepPageRevisionForDisplay(
